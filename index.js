@@ -1,5 +1,6 @@
 const { BigNumber, ethers } = require("ethers");
 const bn = require("bignumber.js");
+const JSBI = require("jsbi");
 const abi = require("./UniswapV3Pool.json").abi;
 
 // Configure bignumber.js
@@ -77,21 +78,46 @@ function calculatePricefromSqrtPriceX96(sqrtPriceX96) {
   };
 }
 
+function calculatePriceFromTick(tick, Decimal1, Decimal0) {
+  let price0 = 1.0001 ** tick / 10 ** (Decimal1 - Decimal0);
+  let price1 = 1 / price0;
+
+  return {
+    price0: price0,
+    price1: price1,
+  };
+}
+
+function sqrtPriceToTick(sqrtPriceX96) {
+  const Q96 = JSBI.exponentiate(JSBI.BigInt(2), JSBI.BigInt(96));
+  let tick = Math.floor(Math.log((sqrtPriceX96 / Q96) ** 2) / Math.log(1.0001));
+  return tick;
+}
+
 async function main() {
   try {
     const slot0Result = await getSlot0(
-      "0x381fE4Eb128db1621647cA00965da3F9e09F4fAc"
+      "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
     );
     // console.log("Slot0 Result:", slot0Result);
-    // const sqrtPrice = 1422288862934490882466257948084879;
     const sqrtPriceX96 = BigNumber.from(
       slot0Result.sqrtPriceX96.toHexString()
     ).toString();
-
     console.log("sqrtPriceX96: ", sqrtPriceX96);
-    const priceCalculationResult = calculatePricefromSqrtPriceX96(sqrtPriceX96);
-    console.log("Price Calculation Result:", priceCalculationResult);
-    // console.log(await getDecimals(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640));
+
+    const tick = BigNumber.from(slot0Result.tick).toString();
+    console.log("tick", tick);
+
+    const priceCalculationResult = calculatePricefromSqrtPriceX96ForUSD(
+      sqrtPriceX96,
+      18,
+      6
+    );
+    console.log("From sqrtPriceX96:", priceCalculationResult);
+
+    console.log("From sqrtPriceX96:", calculatePriceFromTick(tick, 18, 6));
+
+    console.log("tick form sqrtPrice", sqrtPriceToTick(sqrtPriceX96));
   } catch (error) {
     console.error("Error:", error);
   }
